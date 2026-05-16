@@ -41,7 +41,7 @@
   ],
   "sideEffects": false,
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=20"
   },
   "scripts": {
     "prepack": "npm run build",
@@ -64,10 +64,10 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "@cbortech/cbor": "^0.23.1"
+    "@cbortech/cbor": "^0.24.0"
   },
   "devDependencies": {
-    "@cbortech/cbor": "^0.23.1",
+    "@cbortech/cbor": "^0.24.0",
     "@types/node": "^24.12.3",
     "@vitest/browser": "^4.1.5",
     "@vitest/browser-playwright": "^4.1.5",
