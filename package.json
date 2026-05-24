@@ -4,6 +4,7 @@
   "description": "UUID application-string extension for @cbortech/cbor",
   "keywords": [
     "cbor",
+    "cdn",
     "cbor-edn",
     "uuid"
   ],
