@@ -1,4 +1,4 @@
-import { type CborExtension, type ToEDNOptions } from '@cbortech/cbor';
+import { type CborExtension, type ToCDNOptions } from '@cbortech/cbor';
 import {
   CborByteString,
   CborTag,
@@ -56,8 +56,8 @@ function stringFromAppSequence(prefix: string, items: CborItem[]): string {
 }
 
 export class CborUuidExt extends CborByteString {
-  override _toEDN(options: ToEDNOptions | undefined, depth: number): string {
-    if (options?.appStrings === false) return super._toEDN(options, depth);
+  override _toCDN(options: ToCDNOptions | undefined, depth: number): string {
+    if (options?.appStrings === false) return super._toCDN(options, depth);
     return `${PREFIX_UUID}'${formatUuidBytes(this.value)}'`;
   }
 }
@@ -67,12 +67,12 @@ export class CborTaggedUuidExt extends CborTag {
     super(TAG_UUID, content);
   }
 
-  override _toEDN(options: ToEDNOptions | undefined, depth: number): string {
-    if (options?.appStrings === false) return super._toEDN(options, depth);
+  override _toCDN(options: ToCDNOptions | undefined, depth: number): string {
+    if (options?.appStrings === false) return super._toCDN(options, depth);
     if (this.content instanceof CborByteString) {
       return `${PREFIX_UUID_TAGGED}'${formatUuidBytes(this.content.value)}'`;
     }
-    return super._toEDN(options, depth);
+    return super._toCDN(options, depth);
   }
 }
 
