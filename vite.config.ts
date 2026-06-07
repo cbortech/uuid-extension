@@ -25,7 +25,7 @@ export default defineConfig({
       },
     },
     rollupOptions: {
-      external: ['@cbortech/cbor', '@cbortech/cbor/ast'],
+      external: ['@cbortech/cbor', '@cbortech/cbor/ast', '@cbortech/uuid'],
       output: {
         exports: 'named',
       },

@@ -64,6 +64,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
+  "dependencies": {
+    "@cbortech/uuid": "^0.1.0"
+  },
   "peerDependencies": {
     "@cbortech/cbor": "^0.25.0"
   },
