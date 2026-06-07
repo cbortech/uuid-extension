@@ -1,6 +1,6 @@
 {
   "name": "@cbortech/uuid-extension",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "UUID application-string extension for @cbortech/cbor",
   "keywords": [
     "cbor",
@@ -68,7 +68,7 @@
     "@cbortech/uuid": "^0.1.1"
   },
   "peerDependencies": {
-    "@cbortech/cbor": "^0.25.0"
+    "@cbortech/cbor": "^0.25.1"
   },
   "devDependencies": {
     "@cbortech/cbor": "^0.25.1",
