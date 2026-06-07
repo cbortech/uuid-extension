@@ -1,10 +1,16 @@
-import { type CborExtension, type ToCDNOptions } from '@cbortech/cbor';
+import {
+  type CborExtension,
+  type ToCDNOptions,
+  type ToJSOptions,
+  type FromJSOptions,
+} from '@cbortech/cbor';
 import {
   CborByteString,
   CborTag,
   CborTextString,
   type CborItem,
 } from '@cbortech/cbor/ast';
+import { UUID } from '@cbortech/uuid';
 
 const PREFIX_UUID = 'uuid';
 const PREFIX_UUID_TAGGED = 'UUID';
@@ -76,36 +82,80 @@ export class CborTaggedUuidExt extends CborTag {
   }
 }
 
-function buildUuidValue(prefix: string, content: string): CborItem {
+export class CborTaggedUuidAsUUIDExt extends CborTaggedUuidExt {
+  override _toJS(_options?: ToJSOptions): UUID {
+    return new UUID((this.content as CborByteString).value);
+  }
+}
+
+function buildUuidValue(
+  prefix: string,
+  content: string,
+  useUUID: boolean
+): CborItem {
   const bytes = parseUuidString(content);
   const byteString = new CborByteString(bytes);
 
   if (prefix === PREFIX_UUID_TAGGED) {
-    return new CborTaggedUuidExt(byteString);
+    return useUUID
+      ? new CborTaggedUuidAsUUIDExt(byteString)
+      : new CborTaggedUuidExt(byteString);
   }
 
   return new CborUuidExt(bytes);
 }
 
-export const uuid: CborExtension = {
-  appStringPrefixes: [PREFIX_UUID, PREFIX_UUID_TAGGED],
-  tagNumbers: [TAG_UUID],
+export function createUuidExtension(options?: {
+  jsUUID?: boolean;
+}): CborExtension {
+  const useUUID = options?.jsUUID ?? false;
 
-  parseAppString(prefix: string, content: string): CborItem {
-    return buildUuidValue(prefix, content);
-  },
+  const ext: CborExtension = {
+    appStringPrefixes: [PREFIX_UUID, PREFIX_UUID_TAGGED],
+    tagNumbers: [TAG_UUID],
 
-  parseAppSequence(prefix: string, items: CborItem[]): CborItem {
-    return buildUuidValue(prefix, stringFromAppSequence(prefix, items));
-  },
+    parseAppString(prefix: string, content: string): CborItem {
+      return buildUuidValue(prefix, content, useUUID);
+    },
 
-  parseTag(tag: bigint, value: CborItem): CborItem | undefined {
-    if (tag !== TAG_UUID) return undefined;
-    if (value instanceof CborByteString && value.value.length === 16) {
-      return new CborTaggedUuidExt(value);
-    }
-    return undefined;
-  },
-};
+    parseAppSequence(prefix: string, items: CborItem[]): CborItem {
+      return buildUuidValue(
+        prefix,
+        stringFromAppSequence(prefix, items),
+        useUUID
+      );
+    },
+
+    parseTag(tag: bigint, value: CborItem): CborItem | undefined {
+      if (tag !== TAG_UUID) return undefined;
+      if (value instanceof CborByteString && value.value.length === 16) {
+        return useUUID
+          ? new CborTaggedUuidAsUUIDExt(value)
+          : new CborTaggedUuidExt(value);
+      }
+      return undefined;
+    },
+  };
+
+  if (useUUID) {
+    ext.fromJS = (
+      value: unknown,
+      _options: FromJSOptions
+    ): CborItem | undefined => {
+      if (value instanceof UUID)
+        return new CborTaggedUuidAsUUIDExt(new CborByteString(value.toBytes()));
+      return undefined;
+    };
+    ext.isJSType = (value: unknown): value is UUID => value instanceof UUID;
+  }
+
+  return ext;
+}
+
+export const uuid: CborExtension = createUuidExtension();
+
+export const uuid_as_UUID: CborExtension = createUuidExtension({
+  jsUUID: true,
+});
 
 export default uuid;

@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import { CBOR } from '@cbortech/cbor';
 import { CborByteString, CborTag } from '@cbortech/cbor/ast';
-import { CborTaggedUuidExt, CborUuidExt, uuid } from './index';
+import { UUID } from '@cbortech/uuid';
+import {
+  CborTaggedUuidAsUUIDExt,
+  CborTaggedUuidExt,
+  CborUuidExt,
+  uuid,
+  uuid_as_UUID,
+} from './index';
 
 const TEXT = '019e226f-78d8-7892-8c91-79013e6905e2';
 const TEXT_UPPER = '019E226F-78D8-7892-8C91-79013E6905E2';
@@ -95,6 +102,65 @@ describe('uuid — app-sequence form', () => {
 
     expect(value).toBeInstanceOf(CborTaggedUuidExt);
     expect(value.toCDN()).toBe(`UUID'${TEXT}'`);
+  });
+});
+
+describe('uuid_as_UUID', () => {
+  const cbor = new CBOR({ extensions: [uuid_as_UUID] });
+
+  test("uuid'...' still returns Uint8Array from toJS()", () => {
+    const value = cbor.fromCDN(`uuid'${TEXT}'`);
+
+    expect(value).toBeInstanceOf(CborUuidExt);
+    expect(value.toJS()).toEqual(BYTES);
+  });
+
+  test("UUID'...' returns a UUID object from toJS()", () => {
+    const value = cbor.fromCDN(`UUID'${TEXT}'`);
+
+    expect(value).toBeInstanceOf(CborTaggedUuidAsUUIDExt);
+    expect(value.toJS()).toBeInstanceOf(UUID);
+    expect((value.toJS() as UUID).toString()).toBe(TEXT);
+  });
+
+  test("UUID'...' toCDN() still emits UUID'...' notation", () => {
+    const value = cbor.fromCDN(`UUID'${TEXT}'`);
+
+    expect(value.toCDN()).toBe(`UUID'${TEXT}'`);
+  });
+
+  test('CBOR binary tag 37 decodes to UUID object via toJS()', () => {
+    const encoded = new CBOR({ extensions: [uuid] })
+      .fromCDN(`UUID'${TEXT}'`)
+      .toCBOR();
+    const decoded = cbor.fromCBOR(encoded);
+
+    expect(decoded).toBeInstanceOf(CborTaggedUuidAsUUIDExt);
+    expect(decoded.toJS()).toBeInstanceOf(UUID);
+    expect((decoded.toJS() as UUID).toString()).toBe(TEXT);
+  });
+
+  test('fromJS(UUID) round-trips through CBOR', () => {
+    const original = new UUID(TEXT);
+    const encoded = cbor.fromJS(original).toCBOR();
+    const decoded = cbor.fromCBOR(encoded);
+
+    expect(decoded).toBeInstanceOf(CborTaggedUuidAsUUIDExt);
+    expect((decoded.toJS() as UUID).toString()).toBe(TEXT);
+  });
+
+  test('fromJS(UUID) produces tagged form (tag 37)', () => {
+    const item = cbor.fromJS(new UUID(TEXT));
+
+    expect(item).toBeInstanceOf(CborTaggedUuidAsUUIDExt);
+    expect(item.toCDN()).toBe(`UUID'${TEXT}'`);
+  });
+
+  test('does not claim tag 37 values that are not 16-byte strings', () => {
+    const decoded = cbor.fromCDN("37(h'00')");
+
+    expect(decoded).toBeInstanceOf(CborTag);
+    expect(decoded).not.toBeInstanceOf(CborTaggedUuidExt);
   });
 });
 
