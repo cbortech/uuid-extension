@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { CBOR } from '@cbortech/cbor';
+import { CBOR, type ParseWarning } from '@cbortech/cbor';
 import { CborByteString, CborTag } from '@cbortech/cbor/ast';
 import { UUID } from '@cbortech/uuid';
 import {
@@ -103,6 +103,21 @@ describe('uuid — app-sequence form', () => {
     expect(value).toBeInstanceOf(CborTaggedUuidExt);
     expect(value.toCDN()).toBe(`UUID'${TEXT}'`);
   });
+
+  test("uuid<<'no-dash'>> recovers from no-dash byte-string UUID in non-strict mode", () => {
+    const TEXT_NO_DASHES = '019e226f78d878928c9179013e6905e2';
+    const warnings: ParseWarning[] = [];
+    const value = cbor.fromCDN(`uuid<<'${TEXT_NO_DASHES}'>>`, {
+      strict: false,
+      onWarning: (w) => warnings.push(w),
+      silent: true,
+    });
+
+    expect(value).toBeInstanceOf(CborUuidExt);
+    expect((value as CborUuidExt).value).toEqual(BYTES);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain(TEXT_NO_DASHES);
+  });
 });
 
 describe('uuid_as_UUID', () => {
@@ -170,7 +185,133 @@ describe('uuid — invalid input', () => {
     '019e226f-78d8-7892-8c91-79013e6905e',
     '019e226f-78d8-7892-8c91-79013e6905e22',
     '019e226f-78d8-7892-8c91-79013e6905eg',
-  ])('rejects %s', (text) => {
+  ])('rejects %s (strict mode)', (text) => {
     expect(() => cbor.fromCDN(`uuid'${text}'`)).toThrow(SyntaxError);
+  });
+});
+
+describe('uuid — strict: false', () => {
+  const TEXT_NO_DASHES = '019e226f78d878928c9179013e6905e2';
+
+  test('accepts no-dash UUID with warning and continues parsing', () => {
+    const warnings: ParseWarning[] = [];
+    const value = cbor.fromCDN(`uuid'${TEXT_NO_DASHES}'`, {
+      strict: false,
+      onWarning: (w) => warnings.push(w),
+      silent: true,
+    });
+
+    expect(value).toBeInstanceOf(CborUuidExt);
+    expect((value as CborUuidExt).value).toEqual(BYTES);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain(TEXT_NO_DASHES);
+  });
+
+  test('accepts no-dash UUID in UUID-tagged form with warning', () => {
+    const warnings: ParseWarning[] = [];
+    const value = cbor.fromCDN(`UUID'${TEXT_NO_DASHES}'`, {
+      strict: false,
+      onWarning: (w) => warnings.push(w),
+      silent: true,
+    });
+
+    expect(value).toBeInstanceOf(CborTaggedUuidExt);
+    expect(warnings).toHaveLength(1);
+  });
+
+  test.each([
+    '019e226f-78d8-7892-8c91-79013e6905e',
+    '019e226f-78d8-7892-8c91-79013e6905e22',
+    '019e226f-78d8-7892-8c91-79013e6905eg',
+  ])(
+    'emits warning for %s (UUID class also rejects it) in non-strict mode',
+    (text) => {
+      const warnings: ParseWarning[] = [];
+      const value = cbor.fromCDN(`uuid'${text}'`, {
+        strict: false,
+        onWarning: (w) => warnings.push(w),
+        silent: true,
+      });
+
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0].message).toContain(text);
+      // CDN parser returns an unresolved fallback node when the extension throws
+      expect(value.toCDN()).toContain(`uuid'${text}'`);
+    }
+  );
+
+  const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+  const NIL_BYTES = new Uint8Array(16);
+
+  test('uuid<<null>> is accepted as Nil UUID with warning in non-strict mode', () => {
+    const warnings: ParseWarning[] = [];
+    const value = cbor.fromCDN('uuid<<null>>', {
+      strict: false,
+      onWarning: (w) => warnings.push(w),
+      silent: true,
+    });
+
+    expect(value).toBeInstanceOf(CborUuidExt);
+    expect((value as CborUuidExt).value).toEqual(NIL_BYTES);
+    expect(value.toCDN()).toBe(`uuid'${NIL_UUID}'`);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain('null');
+  });
+
+  test('UUID<<null>> is accepted as tagged Nil UUID with warning in non-strict mode', () => {
+    const warnings: ParseWarning[] = [];
+    const value = cbor.fromCDN('UUID<<null>>', {
+      strict: false,
+      onWarning: (w) => warnings.push(w),
+      silent: true,
+    });
+
+    expect(value).toBeInstanceOf(CborTaggedUuidExt);
+    expect(value.toCDN()).toBe(`UUID'${NIL_UUID}'`);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain('null');
+  });
+
+  test('uuid<<null>> throws SyntaxError in strict mode (default)', () => {
+    expect(() => cbor.fromCDN('uuid<<null>>')).toThrow(SyntaxError);
+  });
+
+  test('UUID<<null>> throws SyntaxError in strict mode (default)', () => {
+    expect(() => cbor.fromCDN('UUID<<null>>')).toThrow(SyntaxError);
+  });
+
+  // BYTES = [0x01, 0x9e, ...] — not valid UTF-8, so treated as raw UUIDBytes
+  const BYTES_HEX = '019e226f78d878928c9179013e6905e2';
+
+  test('uuid<<h"...16 raw bytes...">> is accepted with warning in non-strict mode', () => {
+    const warnings: ParseWarning[] = [];
+    const value = cbor.fromCDN(`uuid<<h'${BYTES_HEX}'>>`, {
+      strict: false,
+      onWarning: (w) => warnings.push(w),
+      silent: true,
+    });
+
+    expect(value).toBeInstanceOf(CborUuidExt);
+    expect((value as CborUuidExt).value).toEqual(BYTES);
+    expect(value.toCDN()).toBe(`uuid'${TEXT}'`);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain('bytes');
+  });
+
+  test('UUID<<h"...16 raw bytes...">> is accepted as tagged UUID with warning in non-strict mode', () => {
+    const warnings: ParseWarning[] = [];
+    const value = cbor.fromCDN(`UUID<<h'${BYTES_HEX}'>>`, {
+      strict: false,
+      onWarning: (w) => warnings.push(w),
+      silent: true,
+    });
+
+    expect(value).toBeInstanceOf(CborTaggedUuidExt);
+    expect(value.toCDN()).toBe(`UUID'${TEXT}'`);
+    expect(warnings).toHaveLength(1);
+  });
+
+  test('uuid<<h"...raw bytes...">> throws SyntaxError in strict mode (default)', () => {
+    expect(() => cbor.fromCDN(`uuid<<h'${BYTES_HEX}'>>`)).toThrow(SyntaxError);
   });
 });

@@ -6,6 +6,7 @@ import {
 } from '@cbortech/cbor';
 import {
   CborByteString,
+  CborSimple,
   CborTag,
   CborTextString,
   type CborItem,
@@ -18,8 +19,21 @@ const TAG_UUID = 37n;
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-function parseUuidString(str: string): Uint8Array {
+function parseUuidString(
+  str: string,
+  onError?: (msg: string) => void
+): Uint8Array {
   if (!UUID_RE.test(str)) {
+    let parsed: UUID;
+    try {
+      parsed = new UUID(str);
+    } catch {
+      throw new SyntaxError(`uuid: invalid UUID: ${JSON.stringify(str)}`);
+    }
+    if (onError) {
+      onError(`uuid: non-standard UUID format: ${JSON.stringify(str)}`);
+      return parsed.toBytes();
+    }
     throw new SyntaxError(`uuid: invalid UUID: ${JSON.stringify(str)}`);
   }
 
@@ -43,22 +57,6 @@ function formatUuidBytes(bytes: Uint8Array): string {
     12,
     16
   )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-function stringFromAppSequence(prefix: string, items: CborItem[]): string {
-  if (items.length !== 1) {
-    throw new SyntaxError(`${prefix}<<...>>: expected exactly one item`);
-  }
-
-  const item = items[0];
-  if (item instanceof CborTextString) return item.value;
-  if (item instanceof CborByteString) {
-    return new TextDecoder('utf-8', { fatal: true }).decode(item.value);
-  }
-
-  throw new SyntaxError(
-    `${prefix}<<...>>: expected a text string or byte string`
-  );
 }
 
 export class CborUuidExt extends CborByteString {
@@ -88,21 +86,47 @@ export class CborTaggedUuidAsUUIDExt extends CborTaggedUuidExt {
   }
 }
 
-function buildUuidValue(
+function stringFromAppSequence(prefix: string, items: CborItem[]): string {
+  if (items.length !== 1) {
+    throw new SyntaxError(`${prefix}<<...>>: expected exactly one item`);
+  }
+
+  const item = items[0];
+  if (item instanceof CborTextString) return item.value;
+  if (item instanceof CborByteString) {
+    return new TextDecoder('utf-8', { fatal: true }).decode(item.value);
+  }
+
+  throw new SyntaxError(
+    `${prefix}<<...>>: expected a text string or byte string`
+  );
+}
+
+function uuidBytesToCborItem(
   prefix: string,
-  content: string,
+  bytes: Uint8Array,
   useUUID: boolean
 ): CborItem {
-  const bytes = parseUuidString(content);
   const byteString = new CborByteString(bytes);
-
   if (prefix === PREFIX_UUID_TAGGED) {
     return useUUID
       ? new CborTaggedUuidAsUUIDExt(byteString)
       : new CborTaggedUuidExt(byteString);
   }
-
   return new CborUuidExt(bytes);
+}
+
+function buildUuidValue(
+  prefix: string,
+  content: string,
+  useUUID: boolean,
+  onError?: (msg: string) => void
+): CborItem {
+  return uuidBytesToCborItem(
+    prefix,
+    parseUuidString(content, onError),
+    useUUID
+  );
 }
 
 export function createUuidExtension(options?: {
@@ -114,16 +138,65 @@ export function createUuidExtension(options?: {
     appStringPrefixes: [PREFIX_UUID, PREFIX_UUID_TAGGED],
     tagNumbers: [TAG_UUID],
 
-    parseAppString(prefix: string, content: string): CborItem {
-      return buildUuidValue(prefix, content, useUUID);
+    parseAppString(
+      prefix: string,
+      content: string,
+      onError?: (msg: string) => void
+    ): CborItem {
+      return buildUuidValue(prefix, content, useUUID, onError);
     },
 
-    parseAppSequence(prefix: string, items: CborItem[]): CborItem {
-      return buildUuidValue(
-        prefix,
-        stringFromAppSequence(prefix, items),
-        useUUID
-      );
+    parseAppSequence(
+      prefix: string,
+      items: CborItem[],
+      onError?: (msg: string) => void
+    ): CborItem {
+      // Path A: string extraction succeeded → pass onError so non-standard
+      // UUID strings (e.g. no-dash) are also recovered in non-strict mode
+      let stringExtractError: unknown;
+      let extractedStr: string | undefined;
+      try {
+        extractedStr = stringFromAppSequence(prefix, items);
+      } catch (e) {
+        stringExtractError = e;
+      }
+
+      if (extractedStr !== undefined) {
+        return buildUuidValue(prefix, extractedStr, useUUID, onError);
+      }
+
+      // Path B: string extraction failed (non-UTF-8 bytes, null, unsupported type)
+      // Try new UUID() with the appropriate UUIDInput for the item type
+      if (items.length === 1) {
+        const item = items[0];
+        let uuidInput: Uint8Array | null | undefined;
+        if (item instanceof CborByteString) uuidInput = item.value;
+        else if (item instanceof CborSimple && item.value === 22)
+          uuidInput = null;
+
+        if (uuidInput !== undefined) {
+          let parsed: UUID | undefined;
+          try {
+            parsed = new UUID(uuidInput);
+          } catch {
+            // new UUID() also rejected this input
+          }
+
+          if (parsed !== undefined) {
+            const msg =
+              item instanceof CborSimple
+                ? `${prefix}<<null>>: expected a text string or byte string`
+                : `${prefix}<<bytes>>: byte string is not a valid UTF-8 UUID string`;
+            if (onError) {
+              onError(msg);
+              return uuidBytesToCborItem(prefix, parsed.toBytes(), useUUID);
+            }
+          }
+        }
+      }
+
+      if (stringExtractError instanceof Error) throw stringExtractError;
+      throw new SyntaxError(`${prefix}<<...>>: invalid UUID`);
     },
 
     parseTag(tag: bigint, value: CborItem): CborItem | undefined {
