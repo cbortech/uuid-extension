@@ -4,6 +4,8 @@ UUID application-string extension for [@cbortech/cbor](https://www.npmjs.com/pac
 
 [@cbortech/cbor](https://www.npmjs.com/package/@cbortech/cbor) is a TypeScript library for converting between [CBOR](https://www.rfc-editor.org/rfc/rfc8949.html), [CDN](https://datatracker.ietf.org/doc/draft-ietf-cbor-edn-literals/), and JavaScript values.
 
+The playground is published at https://cbor.tech/cbor/.
+
 This extension uses the CBOR UUID tag number 37.
 
 ## Installation

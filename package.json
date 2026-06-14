@@ -8,7 +8,7 @@
     "cbor-edn",
     "uuid"
   ],
-  "homepage": "https://github.com/cbortech/uuid-extension",
+  "homepage": "https://cbor.tech/cbor/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cbortech/uuid-extension.git"

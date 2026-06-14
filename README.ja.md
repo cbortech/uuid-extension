@@ -4,6 +4,8 @@
 
 [@cbortech/cbor](https://www.npmjs.com/package/@cbortech/cbor) は [CBOR](https://www.rfc-editor.org/rfc/rfc8949.html)・[CDN](https://datatracker.ietf.org/doc/draft-ietf-cbor-edn-literals/)・JavaScript 値を相互変換する TypeScript ライブラリです。
 
+プレイグラウンドを https://cbor.tech/cbor/ で公開しています。
+
 この拡張は CBOR UUID タグ番号 37 を使用します。
 
 ## インストール
