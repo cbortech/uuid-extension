@@ -89,6 +89,67 @@ describe("uuid — UUID'...'", () => {
   });
 });
 
+describe('uuid — encoding indicators', () => {
+  const HEX = TEXT.replace(/-/g, '');
+
+  test("uuid'...'_1 applies EI to the 16-byte string", () => {
+    const value = cbor.fromCDN(`uuid'${TEXT}'_1`);
+    expect(value.toCDN()).toBe(`uuid'${TEXT}'_1`);
+    expect(Buffer.from(value.toCBOR()).toString('hex')).toBe(`590010${HEX}`);
+    expect(value.toCDN({ encodingIndicators: 'never' })).toBe(`uuid'${TEXT}'`);
+  });
+
+  test("UUID'...'_1 applies EI to tag 37, not the byte string", () => {
+    const value = cbor.fromCDN(`UUID'${TEXT}'_1`);
+    expect(value.toCDN()).toBe(`UUID'${TEXT}'_1`);
+    expect(Buffer.from(value.toCBOR()).toString('hex')).toBe(`d9002550${HEX}`);
+    expect(value.toCDN({ encodingIndicators: 'never' })).toBe(`UUID'${TEXT}'`);
+  });
+
+  test('always emits canonical indicators for bare and tagged UUID', () => {
+    expect(
+      cbor.fromCDN(`uuid'${TEXT}'`).toCDN({ encodingIndicators: 'always' })
+    ).toBe(`uuid'${TEXT}'_i`);
+    expect(
+      cbor.fromCDN(`UUID'${TEXT}'`).toCDN({ encodingIndicators: 'always' })
+    ).toBe(`UUID'${TEXT}'_0`);
+  });
+
+  test('non-canonical inner byte-string width falls back to generic tag notation', () => {
+    const bytes = Uint8Array.from(Buffer.from(`d825590010${HEX}`, 'hex'));
+    const value = cbor.fromCBOR(bytes);
+    expect(value.toCDN()).toBe(`37(h'${HEX}'_1)`);
+    expect(value.toCBOR()).toEqual(bytes);
+  });
+
+  test('generic fallback preserves both non-canonical tag and byte-string widths', () => {
+    const bytes = Uint8Array.from(Buffer.from(`d90025590010${HEX}`, 'hex'));
+    const value = cbor.fromCBOR(bytes);
+    const cdn = `37_1(h'${HEX}'_1)`;
+
+    expect(value.toCDN()).toBe(cdn);
+    expect(cbor.fromCDN(cdn).toCBOR()).toEqual(bytes);
+    expect(value.toCDN({ encodingIndicators: 'never' })).toBe(`37(h'${HEX}')`);
+  });
+
+  test('generic fallback disables nested UUID application notation', () => {
+    const inner = new CborUuidExt(BYTES, { encodingWidth: 1 });
+    const value = new CborTaggedUuidExt(inner);
+
+    expect(value.toCDN()).toBe(`37(h'${HEX}'_1)`);
+    expect(value.toCDN({ encodingIndicators: 'always' })).toBe(
+      `37_0(h'${HEX}'_1)`
+    );
+  });
+
+  test('CBOR decoder preserves non-canonical tag width in UUID notation', () => {
+    const bytes = Uint8Array.from(Buffer.from(`d9002550${HEX}`, 'hex'));
+    const value = cbor.fromCBOR(bytes);
+    expect(value.toCDN()).toBe(`UUID'${TEXT}'_1`);
+    expect(value.toCBOR()).toEqual(bytes);
+  });
+});
+
 describe('uuid — app-sequence form', () => {
   test("uuid<<'...'>> parses byte-string content as UTF-8 UUID text", () => {
     const value = cbor.fromCDN(`uuid<<'${TEXT}'>>`);
@@ -176,6 +237,25 @@ describe('uuid_as_UUID', () => {
 
     expect(decoded).toBeInstanceOf(CborTag);
     expect(decoded).not.toBeInstanceOf(CborTaggedUuidExt);
+  });
+
+  test('CBOR decoder preserves non-canonical tag width in UUID notation', () => {
+    const HEX = TEXT.replace(/-/g, '');
+    const bytes = Uint8Array.from(Buffer.from(`d9002550${HEX}`, 'hex'));
+    const value = cbor.fromCBOR(bytes);
+
+    expect(value).toBeInstanceOf(CborTaggedUuidAsUUIDExt);
+    expect(value.toCDN()).toBe(`UUID'${TEXT}'_1`);
+    expect(value.toCBOR()).toEqual(bytes);
+  });
+
+  test('encoding indicators options work with uuid_as_UUID extension', () => {
+    const value = cbor.fromCDN(`UUID'${TEXT}'`);
+
+    expect(value.toCDN({ encodingIndicators: 'always' })).toBe(
+      `UUID'${TEXT}'_0`
+    );
+    expect(value.toCDN({ encodingIndicators: 'never' })).toBe(`UUID'${TEXT}'`);
   });
 });
 

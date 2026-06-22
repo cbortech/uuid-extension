@@ -68,10 +68,10 @@
     "@cbortech/uuid": "^0.1.1"
   },
   "peerDependencies": {
-    "@cbortech/cbor": "^0.25.1"
+    "@cbortech/cbor": "^0.25.6"
   },
   "devDependencies": {
-    "@cbortech/cbor": "^0.25.2",
+    "@cbortech/cbor": "^0.25.6",
     "@types/node": "^24.13.2",
     "@vitest/browser": "^4.1.8",
     "@vitest/browser-playwright": "^4.1.8",
