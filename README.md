@@ -38,12 +38,10 @@ const document = cbor.parse(`{
 // document.taggedId is tag 37 over a Uint8Array.
 
 // Convert CDN containing a UUID value into CBOR.
-const tagged = cbor
-  .fromCDN("UUID'019e226f-78d8-7892-8c91-79013e6905e2'")
-  .toCBOR();
+const tagged = cbor.compile("UUID'019e226f-78d8-7892-8c91-79013e6905e2'");
 // tagged is CBOR binary data stored as a Uint8Array.
-// Inspect the encoded CBOR value with toHexDump():
-console.log(CBOR.fromCBOR(tagged).toHexDump());
+// Inspect the encoded CBOR value with toHex():
+console.log(cbor.toHex(tagged));
 // D8 25                                                  -- Tag 37
 //    50 01 9E 22 6F 78 D8 78 92 8C 91 79 01 3E 69 05 E2  -- h'019e226f78d878928c9179013e6905e2'
 
@@ -63,24 +61,21 @@ import { UUID } from '@cbortech/uuid';
 
 const cbor = new CBOR({ extensions: [uuid_as_UUID] });
 
-// UUID'...' values become UUID objects via toJS().
-const item = cbor.fromCDN("UUID'019e226f-78d8-7892-8c91-79013e6905e2'");
-const value = item.toJS();
+// UUID'...' values become UUID objects via parse().
+const value = cbor.parse("UUID'019e226f-78d8-7892-8c91-79013e6905e2'");
 console.log(value instanceof UUID); // true
 if (value instanceof UUID) console.log(value.parse());
 // { ver: 7, unix_ts_ms: 1778694191320, rand_a: 2194, var: 'RFC4122', rand_b: ...n }
 
-// toCDN() still emits UUID'...' notation.
-console.log(item.toCDN()); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
+// stringify() emits UUID'...' notation.
+console.log(cbor.stringify(value)); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
 
 // 37(h'...') notation is also converted to a UUID object.
-const item2 = cbor.fromCDN("37(h'019e226f78d878928c9179013e6905e2')");
-console.log(item2.toCDN()); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
+const value2 = cbor.parse("37(h'019e226f78d878928c9179013e6905e2')");
+console.log(cbor.stringify(value2)); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
 
 // UUID objects are encoded as tag 37 over a 16-byte string.
-const encoded = cbor
-  .fromJS(new UUID('019e226f-78d8-7892-8c91-79013e6905e2'))
-  .toCBOR();
+const encoded = cbor.encode(new UUID('019e226f-78d8-7892-8c91-79013e6905e2'));
 console.log(cbor.fromCBOR(encoded).toCDN()); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
 
 // Untagged uuid'...' values still produce Uint8Array via toJS().

@@ -37,12 +37,10 @@ const document = cbor.parse(`{
 // document.taggedId はタグ 37 でラップされた Uint8Array。
 
 // UUID 値を含む CDN を CBOR に変換する。
-const tagged = cbor
-  .fromCDN("UUID'019e226f-78d8-7892-8c91-79013e6905e2'")
-  .toCBOR();
+const tagged = cbor.compile("UUID'019e226f-78d8-7892-8c91-79013e6905e2'");
 // tagged は Uint8Array として格納された CBOR バイナリデータ。
-// toHexDump() でエンコード結果を確認できる。
-console.log(CBOR.fromCBOR(tagged).toHexDump());
+// toHex() でエンコード結果を確認できる。
+console.log(cbor.toHex(tagged));
 // D8 25                                                  -- Tag 37
 //    50 01 9E 22 6F 78 D8 78 92 8C 91 79 01 3E 69 05 E2  -- h'019e226f78d878928c9179013e6905e2'
 
@@ -62,24 +60,21 @@ import { UUID } from '@cbortech/uuid';
 
 const cbor = new CBOR({ extensions: [uuid_as_UUID] });
 
-// UUID'...' 値は toJS() で UUID オブジェクトになる。
-const item = cbor.fromCDN("UUID'019e226f-78d8-7892-8c91-79013e6905e2'");
-const value = item.toJS();
+// UUID'...' 値は parse() で UUID オブジェクトになる。
+const value = cbor.parse("UUID'019e226f-78d8-7892-8c91-79013e6905e2'");
 console.log(value instanceof UUID); // true
 if (value instanceof UUID) console.log(value.parse());
 // { ver: 7, unix_ts_ms: 1778694191320, rand_a: 2194, var: 'RFC4122', rand_b: ...n }
 
-// toCDN() は引き続き UUID'...' 形式を出力する。
-console.log(item.toCDN()); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
+// stringify() は UUID'...' 形式を出力する。
+console.log(cbor.stringify(value)); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
 
 // 37(h'...') 形式でも同様に UUID オブジェクトに変換される。
-const item2 = cbor.fromCDN("37(h'019e226f78d878928c9179013e6905e2')");
-console.log(item2.toCDN()); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
+const value2 = cbor.parse("37(h'019e226f78d878928c9179013e6905e2')");
+console.log(cbor.stringify(value2)); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
 
 // UUID オブジェクトはタグ 37 付きの 16 バイト文字列としてエンコードされる。
-const encoded = cbor
-  .fromJS(new UUID('019e226f-78d8-7892-8c91-79013e6905e2'))
-  .toCBOR();
+const encoded = cbor.encode(new UUID('019e226f-78d8-7892-8c91-79013e6905e2'));
 console.log(cbor.fromCBOR(encoded).toCDN()); // UUID'019e226f-78d8-7892-8c91-79013e6905e2'
 
 // タグなしの uuid'...' 値の toJS() は引き続き Uint8Array を返す。
