@@ -8,6 +8,10 @@
 
 この拡張は CBOR UUID タグ番号 37 を使用します。
 
+生の 16 バイト文字列には `uuid'...'`、そのバイト文字列を CBOR タグ 37 で
+ラップする形式には `UUID'...'` を定義します。記法の完全な仕様は
+[docs/cdn-uuid-notation.ja.md](docs/cdn-uuid-notation.ja.md) を参照してください。
+
 ## インストール
 
 ```bash
@@ -91,6 +95,8 @@ console.log(bare.toJS()); // Uint8Array
 - `uuid<<"019e226f-78d8-7892-8c91-79013e6905e2">>` のようなアプリシーケンス形式もサポートしている。
 
 UUID テキストは正規の 8-4-4-4-12 16 進数形式で検証されます。大文字の 16 進数入力も受け付け、シリアライズ時は小文字の正規テキストに変換されます。
+
+完全な規則は [docs/cdn-uuid-notation.ja.md](docs/cdn-uuid-notation.ja.md) を参照してください。
 
 ## ライセンス
 

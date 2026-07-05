@@ -8,6 +8,11 @@ The playground is published at https://cbor.tech/cbor/.
 
 This extension uses the CBOR UUID tag number 37.
 
+It defines `uuid'...'` for a bare 16-byte byte string and `UUID'...'` for CBOR
+tag 37 over that byte string. See
+[docs/cdn-uuid-notation.md](docs/cdn-uuid-notation.md) for the full notation
+specification.
+
 ## Installation
 
 ```bash
@@ -91,6 +96,9 @@ console.log(bare.toJS()); // Uint8Array
 - App-sequence forms such as `uuid<<"019e226f-78d8-7892-8c91-79013e6905e2">>` are also supported.
 
 UUID text is validated as the canonical 8-4-4-4-12 hexadecimal form. Uppercase hexadecimal input is accepted and serialized back as lowercase canonical text.
+
+See [docs/cdn-uuid-notation.md](docs/cdn-uuid-notation.md) for the complete
+rules.
 
 ## License
 
