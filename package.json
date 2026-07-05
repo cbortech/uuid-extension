@@ -1,6 +1,6 @@
 {
   "name": "@cbortech/uuid-extension",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "UUID (CBOR Tag 37) application extension for @cbortech/cbor",
   "keywords": [
     "cbor",
