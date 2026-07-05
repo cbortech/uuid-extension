@@ -1,7 +1,7 @@
 {
   "name": "@cbortech/uuid-extension",
-  "version": "0.3.1",
-  "description": "UUID application-string extension for @cbortech/cbor",
+  "version": "0.3.3",
+  "description": "UUID (CBOR Tag 37) application extension for @cbortech/cbor",
   "keywords": [
     "cbor",
     "cdn",
@@ -38,7 +38,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "docs"
   ],
   "sideEffects": false,
   "engines": {
@@ -65,24 +66,24 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@cbortech/uuid": "^0.1.1"
+    "@cbortech/uuid": "^0.1.2"
   },
   "peerDependencies": {
-    "@cbortech/cbor": "^0.25.6"
+    "@cbortech/cbor": "^0.26.0"
   },
   "devDependencies": {
-    "@cbortech/cbor": "^0.25.6",
+    "@cbortech/cbor": "^0.26.0",
     "@types/node": "^24.13.2",
-    "@vitest/browser": "^4.1.8",
-    "@vitest/browser-playwright": "^4.1.8",
-    "@vitest/coverage-v8": "^4.1.8",
-    "@vitest/ui": "^4.1.8",
+    "@vitest/browser": "^4.1.9",
+    "@vitest/browser-playwright": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.9",
+    "@vitest/ui": "^4.1.9",
     "cross-env": "^10.1.0",
-    "playwright": "^1.60.0",
-    "prettier": "^3.8.4",
+    "playwright": "^1.61.1",
+    "prettier": "^3.9.4",
     "typescript": "^5.9.3",
-    "vite": "^8.0.16",
+    "vite": "^8.1.3",
     "vite-plugin-dts": "^4.5.4",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }
