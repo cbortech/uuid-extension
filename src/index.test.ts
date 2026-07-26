@@ -158,6 +158,83 @@ describe('uuid — encoding indicators', () => {
   });
 });
 
+describe('uuid — preserveAppSequence', () => {
+  // By design, uuid/UUID regenerate their notation from the resolved bytes
+  // on every format() call — so <<...>> normally collapses to '...' even
+  // though both spell the same UUID. preserveAppSequence keeps the original
+  // bracketed spelling instead, without changing the parsed node's class
+  // (CborUuidExt / CborTaggedUuidExt).
+
+  test("uuid<<'...'>> keeps its bracketed notation when requested", () => {
+    const value = cbor.fromCDN(`uuid<<'${TEXT}'>>`);
+    expect(value.toCDN({ preserveAppSequence: true })).toBe(
+      `uuid<<'${TEXT}'>>`
+    );
+    // Default output normalises to the uuid'...' form.
+    expect(value.toCDN()).toBe(`uuid'${TEXT}'`);
+  });
+
+  test("UUID<<'...'>> (tagged) keeps its bracketed notation when requested", () => {
+    const value = cbor.fromCDN(`UUID<<'${TEXT}'>>`);
+    expect(value.toCDN({ preserveAppSequence: true })).toBe(
+      `UUID<<'${TEXT}'>>`
+    );
+  });
+
+  test('appStrings:false still wins over preserveAppSequence', () => {
+    const value = cbor.fromCDN(`UUID<<'${TEXT}'>>`);
+    expect(value.toCDN({ preserveAppSequence: true, appStrings: false })).toBe(
+      `37(h'${TEXT.replace(/-/g, '')}')`
+    );
+  });
+
+  test('keeps a non-canonical uuid/UUID app-string spelling too, not just <<...>>', () => {
+    // Uppercase hex is a valid spelling of the same UUID that
+    // formatUuidBytes() would normally regenerate as lowercase.
+    const value = cbor.fromCDN(`uuid'${TEXT_UPPER}'`);
+    expect(value.toCDN({ preserveAppSequence: true })).toBe(
+      `uuid'${TEXT_UPPER}'`
+    );
+    expect(value.toCDN()).toBe(`uuid'${TEXT}'`);
+  });
+
+  test('keeps prefix`...` (backtick app-string) notation when requested', () => {
+    const bare = cbor.fromCDN(`uuid\`${TEXT}\``);
+    expect(bare.toCDN({ preserveAppSequence: true })).toBe(`uuid\`${TEXT}\``);
+    const tagged = cbor.fromCDN(`UUID\`${TEXT}\``);
+    expect(tagged.toCDN({ preserveAppSequence: true })).toBe(`UUID\`${TEXT}\``);
+    // Default output normalises to the single-quoted form.
+    expect(bare.toCDN()).toBe(`uuid'${TEXT}'`);
+  });
+
+  test('backtick node keeps its dedicated class/identity', () => {
+    const value = cbor.fromCDN(`uuid\`${TEXT}\``);
+    expect(value).toBeInstanceOf(CborUuidExt);
+  });
+
+  test('keeps raw tag notation (37(...)) instead of upgrading to UUID notation', () => {
+    const rawTag = `37(h'${TEXT.replace(/-/g, '')}')`;
+    const value = cbor.fromCDN(rawTag);
+    expect(value.toCDN({ preserveAppSequence: true })).toBe(rawTag);
+    // Default output normalises to the regenerated UUID'...' form.
+    expect(value.toCDN()).toBe(`UUID'${TEXT}'`);
+  });
+
+  test('appStrings:false still wins over preserveAppSequence for raw tag notation', () => {
+    const rawTag = `37(h'${TEXT.replace(/-/g, '')}')`;
+    const value = cbor.fromCDN(rawTag);
+    expect(value.toCDN({ preserveAppSequence: true, appStrings: false })).toBe(
+      rawTag
+    );
+  });
+
+  test('raw tag notation node keeps its dedicated class/identity', () => {
+    const rawTag = `37(h'${TEXT.replace(/-/g, '')}')`;
+    const value = cbor.fromCDN(rawTag);
+    expect(value).toBeInstanceOf(CborTaggedUuidExt);
+  });
+});
+
 describe('uuid — app-sequence form', () => {
   test("uuid<<'...'>> parses byte-string content as UTF-8 UUID text", () => {
     const value = cbor.fromCDN(`uuid<<'${TEXT}'>>`);
