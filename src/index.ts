@@ -1,9 +1,17 @@
 import {
   type CborExtension,
+  type EncodingWidth,
   type ToCDNOptions,
   type ToJSOptions,
   type FromJSOptions,
 } from '@cbortech/cbor';
+import {
+  resolveEiSuffix,
+  canonicalEncodingWidth,
+  decideTaggedAppSeqRendering,
+  adjustRawAppSeqSource,
+  adjustAppSeqIndicator,
+} from '@cbortech/cbor/cdn';
 import {
   CborByteString,
   CborSimple,
@@ -18,19 +26,6 @@ const PREFIX_UUID_TAGGED = 'UUID';
 const TAG_UUID = 37n;
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
-type EncodingWidth = Exclude<CborByteString['encodingWidth'], undefined>;
-
-function resolveEiSuffix(
-  options: ToCDNOptions | undefined,
-  encodingWidth: CborByteString['encodingWidth'],
-  canonicalWidth: EncodingWidth
-): string {
-  const mode = options?.encodingIndicators ?? 'auto';
-  if (mode === 'never') return '';
-  if (mode === 'always') return `_${encodingWidth ?? canonicalWidth}`;
-  return encodingWidth !== undefined ? `_${encodingWidth}` : '';
-}
 
 function parseUuidString(
   str: string,
@@ -76,7 +71,23 @@ export class CborUuidExt extends CborByteString {
   override _toCDN(options: ToCDNOptions | undefined, depth: number): string {
     if (options?.appStrings === false) return super._toCDN(options, depth);
     // A bare uuid literal represents a 16-byte string (canonical AI is inline).
-    const eiSuffix = resolveEiSuffix(options, this.encodingWidth, 'i');
+    const eiSuffix = resolveEiSuffix(options, this.encodingWidth, () =>
+      canonicalEncodingWidth(BigInt(this.value.length))
+    );
+    const decision = decideTaggedAppSeqRendering(
+      options,
+      this.appSeqSource,
+      undefined,
+      this.appSeqSourceFeatures
+    );
+    if (decision === 'adjusted')
+      return adjustAppSeqIndicator(
+        this.appSeqSource!,
+        eiSuffix,
+        options,
+        this.appSeqInnerEnd,
+        this.appSeqComments
+      );
     return `${PREFIX_UUID}'${formatUuidBytes(this.value)}'${eiSuffix}`;
   }
 }
@@ -91,6 +102,24 @@ export class CborTaggedUuidExt extends CborTag {
 
   override _toCDN(options: ToCDNOptions | undefined, depth: number): string {
     if (options?.appStrings === false) return super._toCDN(options, depth);
+    const decision = decideTaggedAppSeqRendering(
+      options,
+      this.appSeqSource,
+      this.ednSource,
+      this.appSeqSourceFeatures,
+      this.appSeqEncodingEditsComplete
+    );
+    if (decision === 'verbatim') return this.appSeqSource!;
+    if (decision === 'source')
+      return adjustRawAppSeqSource(
+        this.appSeqSource!,
+        options,
+        this.appSeqComments,
+        this.appSeqEncodingEdits
+      );
+    // Like ip's content, uuid's content (CborByteString) never self-switches
+    // on `appStrings`, so no need to force it false here.
+    if (decision === 'structural') return super._toCDN(options, depth);
     if (this.content instanceof CborByteString) {
       // UUID'...'_N controls tag 37. If the inner byte string itself has a
       // non-canonical head, app-string notation cannot express both widths;
@@ -98,7 +127,17 @@ export class CborTaggedUuidExt extends CborTag {
       if (this.content.encodingWidth !== undefined)
         return super._toCDN({ ...options, appStrings: false }, depth);
       // Tag 37 canonically uses one additional byte (AI=24, `_0`).
-      const eiSuffix = resolveEiSuffix(options, this.encodingWidth, 0);
+      const eiSuffix = resolveEiSuffix(options, this.encodingWidth, () =>
+        canonicalEncodingWidth(TAG_UUID)
+      );
+      if (decision === 'adjusted')
+        return adjustAppSeqIndicator(
+          this.appSeqSource!,
+          eiSuffix,
+          options,
+          this.appSeqInnerEnd,
+          this.appSeqComments
+        );
       return `${PREFIX_UUID_TAGGED}'${formatUuidBytes(this.content.value)}'${eiSuffix}`;
     }
     return super._toCDN(options, depth);
@@ -162,6 +201,12 @@ export function createUuidExtension(options?: {
   const ext: CborExtension = {
     appStringPrefixes: [PREFIX_UUID, PREFIX_UUID_TAGGED],
     tagNumbers: [TAG_UUID],
+    // uuid/UUID results always have a dedicated subclass (CborUuidExt /
+    // CborTaggedUuidExt) that regenerates its notation by default;
+    // 'optional' preserves the source spelling only when
+    // ToCDNOptions.preserveAppSequence is set, without changing the
+    // returned node's class/identity.
+    preserveAppSeqSource: 'optional',
 
     parseAppString(
       prefix: string,
