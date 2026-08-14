@@ -69,7 +69,7 @@ function formatUuidBytes(bytes: Uint8Array): string {
 
 export class CborUuidExt extends CborByteString {
   override _toCDN(options: ToCDNOptions | undefined, depth: number): string {
-    if (options?.appStrings === false) return super._toCDN(options, depth);
+    if (options?.appPrefix === false) return super._toCDN(options, depth);
     // A bare uuid literal represents a 16-byte string (canonical AI is inline).
     const eiSuffix = resolveEiSuffix(options, this.encodingWidth, () =>
       canonicalEncodingWidth(BigInt(this.value.length))
@@ -101,7 +101,7 @@ export class CborTaggedUuidExt extends CborTag {
   }
 
   override _toCDN(options: ToCDNOptions | undefined, depth: number): string {
-    if (options?.appStrings === false) return super._toCDN(options, depth);
+    if (options?.appPrefix === false) return super._toCDN(options, depth);
     const decision = decideTaggedAppSeqRendering(
       options,
       this.appSeqSource,
@@ -118,14 +118,14 @@ export class CborTaggedUuidExt extends CborTag {
         this.appSeqEncodingEdits
       );
     // Like ip's content, uuid's content (CborByteString) never self-switches
-    // on `appStrings`, so no need to force it false here.
+    // on `appPrefix`, so no need to force it false here.
     if (decision === 'structural') return super._toCDN(options, depth);
     if (this.content instanceof CborByteString) {
       // UUID'...'_N controls tag 37. If the inner byte string itself has a
       // non-canonical head, app-string notation cannot express both widths;
       // use generic tag notation so the inner indicator remains visible.
       if (this.content.encodingWidth !== undefined)
-        return super._toCDN({ ...options, appStrings: false }, depth);
+        return super._toCDN({ ...options, appPrefix: false }, depth);
       // Tag 37 canonically uses one additional byte (AI=24, `_0`).
       const eiSuffix = resolveEiSuffix(options, this.encodingWidth, () =>
         canonicalEncodingWidth(TAG_UUID)
@@ -204,7 +204,7 @@ export function createUuidExtension(options?: {
     // uuid/UUID results always have a dedicated subclass (CborUuidExt /
     // CborTaggedUuidExt) that regenerates its notation by default;
     // 'optional' preserves the source spelling only when
-    // ToCDNOptions.preserveAppSequence is set, without changing the
+    // ToCDNOptions.preserveAppPrefix is set, without changing the
     // returned node's class/identity.
     preserveAppSeqSource: 'optional',
 
